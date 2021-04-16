@@ -4,6 +4,7 @@ const ytdl = require("ytdl-core");
 const auth = require('./auth.json');
 const config = require('./config.json');
 let connection = null;
+let botStatus = `invisible`;
 
 const client = new Discord.Client();
 client.login(auth.token);
@@ -14,7 +15,7 @@ client.on('ready', () => {
 
     // appear invisible
     client.user.setPresence({
-        status: 'invisible'
+        status: botStatus
     });
 
     // join voicechannel
@@ -53,7 +54,7 @@ client.on('message', async function(message) {
                 message.reply(`let's groove!\n`+
                     `- play { link }\n`+
                     `- stop\n`+
-                    `- status { offline | online }`)
+                    `- status`)
                 break;
             case 'play':
                 if (args.length > 2) {
@@ -73,20 +74,12 @@ client.on('message', async function(message) {
                 }
                 break;
             case 'status':
-                if (args.length > 2) {
-                    switch (args[2]) {
-                        case 'offline':
-                            client.user.setPresence({
-                                status: 'invisible'
-                            });
-                            break;
-                        case 'online':
-                            client.user.setPresence({
-                                status: 'online'
-                            });
-                            break;
-                    }
-                }
+                if (botStatus === 'online')
+                    botStatus = 'invisible'
+                else botStatus = 'online' 
+                client.user.setPresence({
+                    status: botStatus
+                });
                 break;
             default:
                 message.reply('mew!');

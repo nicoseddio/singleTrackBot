@@ -1,7 +1,9 @@
 const Discord = require('discord.js');
 const ytdl = require("ytdl-core");
+
 const auth = require('./auth.json');
 const config = require('./config.json');
+let connection = null;
 
 const client = new Discord.Client();
 client.login(auth.token);
@@ -9,40 +11,109 @@ client.login(auth.token);
 client.on('ready', () => {
     console.log();
     console.log(`Logged in as ${client.user.tag}!`);
+
+    // appear invisible
     client.user.setPresence({
-        status: 5
-    })
+        status: 'invisible'
+    });
+
+    // join voicechannel
+    client.channels.cache.get(config.voicechannel)
+    .join().then(conn => {
+        connection = conn;
+        // Yay, it worked!
+        console.log("Successfully connected.");
+    }).catch(e => {
+        // Oh no!
+        console.error(e);
+    });
 });
 
 client.on('message', async function(message) {
-    if (message.author.id === client.user.id) return; //ignore self
+    // ignore self.
+    if (message.author.id === client.user.id) return;
+
+    // only respond to text channel in config.
+    if (message.channel != config.textchannel) return;
+
+    // only respond to admin users in config.
+    if (!config.admins.includes(message.author.id)) return;
+
+    // parse args
     let args = ["null"];
     if (message.content.length > 0)
         args = message.content.split(" ");
-    if (args[0] === client.user.id) {
-        message.reply("mew!");
+
+    // if message starts with mention and has multiple args
+    if (args[0] === `<@!${client.user.id}>` && args.length > 1) {
+
+        // parse command
+        switch (args[1]) {
+            case 'help':
+                message.reply(`let's groove!\n`+
+                    `- play { link }\n`+
+                    `- stop\n`+
+                    `- status { offline | online }`)
+                break;
+            case 'play':
+                if (args.length > 2) {
+                    try {
+                        const songInfo = await ytdl.getInfo(args[2]);
+                        const song = {
+                            title: songInfo.videoDetails.title,
+                            url: songInfo.videoDetails.video_url,
+                        };
+                        console.log(song);
+                        connection.play(ytdl(song.url))
+                        .on("error", error => console.error(error));
+                        // dispatcher.setVolumeLogarithmic(serverQueue.volume / 5);
+                    } catch (err) {
+                        console.log(err);
+                    }
+                }
+                break;
+            case 'status':
+                if (args.length > 2) {
+                    switch (args[2]) {
+                        case 'offline':
+                            client.user.setPresence({
+                                status: 'invisible'
+                            });
+                            break;
+                        case 'online':
+                            client.user.setPresence({
+                                status: 'online'
+                            });
+                            break;
+                    }
+                }
+                break;
+            default:
+                message.reply('mew!');
+        }
+    } else {
+        message.reply('mew!');
     }
+    console.log(message.content);
 });
 
 
 
-const serverQueue = this.queue.get(message.guild.id);
-
-if (message.content.startsWith(`!play`)) {
-    execute(message, serverQueue);
-    return;
-} else if (message.content.startsWith(`!skip`)) {
-    skip(message, serverQueue);
-    return;
-} else if (message.content.startsWith(`!stop`)) {
-    stop(message, serverQueue);
-    return;
-}
+// if (message.content.startsWith(`!play`)) {
+//     execute(message, serverQueue);
+//     return;
+// } else if (message.content.startsWith(`!skip`)) {
+//     skip(message, serverQueue);
+//     return;
+// } else if (message.content.startsWith(`!stop`)) {
+//     stop(message, serverQueue);
+//     return;
+// }
 
 async function execute(message, serverQueue) {
     const args = message.content.split(" ");
 
-    const voiceChannel = message.member.voice.channel;
+    const voiceChannel = config.voicechannel;
     if (!voiceChannel)
         return message.channel.send(
         "You need to be in a voice channel to play music!"
